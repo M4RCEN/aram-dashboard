@@ -111,7 +111,11 @@ export default function DataTable({
           <tbody>
             {records.map((record, index) => (
               <tr
-                key={String(record.id ?? index)}
+                key={
+                  record._sourceTable
+                    ? `${record._sourceTable}-${record.id ?? index}`
+                    : String(record.id ?? index)
+                }
                 className="border-b border-slate-100 hover:bg-blue-50/50"
               >
                 {columns.map((column) => (

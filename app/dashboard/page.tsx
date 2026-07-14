@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import AnalyticsCharts from "@/components/AnalyticsCharts";
 import DataTable from "@/components/DataTable";
 import Pagination from "@/components/Pagination";
+import PlaceSearch from "@/components/PlaceSearch";
 import RecordForm from "@/components/RecordForm";
 import SummaryCards from "@/components/SummaryCards";
 import TableToolbar from "@/components/TableToolbar";
@@ -32,16 +33,27 @@ import {
   updateRecord,
 } from "@/lib/postgrest";
 import {
+  ALL_TABLES,
   DEFAULT_PAGE_SIZE,
   TABLE_META,
 } from "@/lib/table-config";
 import type {
+  DashboardTab,
   EditorMode,
   RecordItem,
   SortDirection,
   TableKey,
   TableStats,
 } from "@/lib/types";
+
+const ALL_VIEW_COLUMNS = [
+  "record_type",
+  "record_name",
+  "status",
+  "image_url",
+  "created_at",
+];
+const ALL_VIEW_FETCH_SIZE = 500;
 
 type ToastState = {
   type: "success" | "error";
@@ -57,7 +69,7 @@ const EMPTY_STATS: TableStats = {
 };
 
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<TableKey>("events");
+  const [activeTab, setActiveTab] = useState<DashboardTab>("events");
   const [records, setRecords] = useState<RecordItem[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -91,14 +103,23 @@ export default function DashboardPage() {
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
 
-  const meta = TABLE_META[activeTab];
-  const fields = TABLE_FIELDS[activeTab];
-  const columns = meta.displayColumns;
+  const isAllTab = activeTab === "all";
+  const meta = isAllTab ? null : TABLE_META[activeTab];
+  const fields = isAllTab ? [] : TABLE_FIELDS[activeTab];
+  const columns = isAllTab ? ALL_VIEW_COLUMNS : meta!.displayColumns;
 
   const analytics = useMemo(
-    () => computeAnalytics(activeTab, analyticsRecords),
-    [activeTab, analyticsRecords]
+    () => (isAllTab ? null : computeAnalytics(activeTab, analyticsRecords)),
+    [activeTab, isAllTab, analyticsRecords]
   );
+
+  function resolveTable(record: RecordItem): TableKey {
+    const source = record._sourceTable;
+    if (typeof source === "string" && (ALL_TABLES as string[]).includes(source)) {
+      return source as TableKey;
+    }
+    return activeTab === "all" ? "events" : activeTab;
+  }
 
   function showToast(type: ToastState["type"], message: string) {
     setToast({ type, message });
@@ -135,6 +156,48 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const loadAllRecords = useCallback(async () => {
+    const perTable = await Promise.all(
+      ALL_TABLES.map(async (table) => {
+        const result = await fetchRecordsPaginated(table, {
+          search: debouncedSearch,
+          status: statusFilter || undefined,
+          sortBy: "created_at",
+          sortDir: "desc",
+          page: 1,
+          pageSize: ALL_VIEW_FETCH_SIZE,
+        });
+
+        return result.records.map((record) => ({
+          ...record,
+          _sourceTable: table,
+          record_type: TABLE_META[table].label,
+          record_name: getRecordLabel(table, record),
+        }));
+      })
+    );
+
+    const merged = perTable.flat();
+
+    merged.sort((a, b) => {
+      const av = a[sortBy];
+      const bv = b[sortBy];
+      if (av == null && bv == null) return 0;
+      if (av == null) return sortDir === "asc" ? -1 : 1;
+      if (bv == null) return sortDir === "asc" ? 1 : -1;
+      if (av < bv) return sortDir === "asc" ? -1 : 1;
+      if (av > bv) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    const totalCount = merged.length;
+    const start = (page - 1) * pageSize;
+
+    setRecords(merged.slice(start, start + pageSize));
+    setTotal(totalCount);
+    setTotalPages(Math.max(1, Math.ceil(totalCount / pageSize)));
+  }, [debouncedSearch, statusFilter, sortBy, sortDir, page, pageSize]);
+
   const loadRecords = useCallback(async () => {
     if (!getApiUrl()) {
       setError("Missing NEXT_PUBLIC_POSTGREST_URL in .env.local");
@@ -144,6 +207,11 @@ export default function DashboardPage() {
     try {
       setLoading(true);
       setError(null);
+
+      if (activeTab === "all") {
+        await loadAllRecords();
+        return;
+      }
 
       const result = await fetchRecordsPaginated(activeTab, {
         search: debouncedSearch,
@@ -169,6 +237,7 @@ export default function DashboardPage() {
     }
   }, [
     activeTab,
+    loadAllRecords,
     debouncedSearch,
     statusFilter,
     categoryFilter,
@@ -204,6 +273,7 @@ export default function DashboardPage() {
   }, [loadRecords]);
 
   useEffect(() => {
+    if (activeTab === "all") return;
     loadFilterOptions(activeTab);
     loadAnalytics(activeTab);
   }, [activeTab, loadFilterOptions, loadAnalytics]);
@@ -213,7 +283,7 @@ export default function DashboardPage() {
     setFormData({});
   }
 
-  function handleTabChange(table: TableKey) {
+  function handleTabChange(table: DashboardTab) {
     setActiveTab(table);
     setSearch("");
     setDebouncedSearch("");
@@ -235,11 +305,16 @@ export default function DashboardPage() {
   }
 
   function handleCreate() {
+    if (activeTab === "all") return;
     setEditorMode("create");
     setFormData(getDefaultFormData(activeTab));
   }
 
   function handleEdit(record: RecordItem) {
+    const table = resolveTable(record);
+    if (activeTab === "all") {
+      setActiveTab(table);
+    }
     setEditorMode("edit");
     setFormData({ ...record });
   }
@@ -275,6 +350,8 @@ export default function DashboardPage() {
   }
 
   async function handleSave() {
+    if (activeTab === "all") return;
+
     const validationError = validateForm();
     if (validationError) {
       showToast("error", validationError);
@@ -308,13 +385,18 @@ export default function DashboardPage() {
 
   async function handleDeleteConfirm() {
     if (!deleteTarget?.id) return;
+    const table = resolveTable(deleteTarget);
 
     try {
       setDeleting(true);
-      await deleteRecord(activeTab, deleteTarget.id);
+      await deleteRecord(table, deleteTarget.id);
       showToast("success", "Record deleted successfully.");
       setDeleteTarget(null);
-      await Promise.all([loadRecords(), loadStats(), loadAnalytics(activeTab)]);
+      await Promise.all([
+        loadRecords(),
+        loadStats(),
+        ...(activeTab === "all" ? [] : [loadAnalytics(activeTab)]),
+      ]);
     } catch (err) {
       console.error(err);
       showToast("error", "Failed to delete record.");
@@ -373,8 +455,9 @@ export default function DashboardPage() {
     await Promise.all([
       loadRecords(),
       loadStats(),
-      loadFilterOptions(activeTab),
-      loadAnalytics(activeTab),
+      ...(activeTab === "all"
+        ? []
+        : [loadFilterOptions(activeTab), loadAnalytics(activeTab)]),
     ]);
   }
 
@@ -402,10 +485,13 @@ export default function DashboardPage() {
             Are you sure you want to permanently delete{" "}
             <span className="font-semibold text-slate-900">
               &ldquo;
-              {deleteTarget ? getRecordLabel(activeTab, deleteTarget) : ""}
+              {deleteTarget
+                ? getRecordLabel(resolveTable(deleteTarget), deleteTarget)
+                : ""}
               &rdquo;
             </span>{" "}
-            from {meta.label}? This action cannot be undone.
+            from {deleteTarget ? TABLE_META[resolveTable(deleteTarget)].label : ""}?
+            This action cannot be undone.
           </>
         }
         onConfirm={handleDeleteConfirm}
@@ -417,8 +503,8 @@ export default function DashboardPage() {
         title={editorMode === "create" ? "New Record" : "Edit Record"}
         description={
           editorMode === "create"
-            ? `Add a new record to ${meta.label}.`
-            : `Update this ${meta.label.toLowerCase()} record.`
+            ? `Add a new record to ${meta?.label ?? "this table"}.`
+            : `Update this ${(meta?.label ?? "record").toLowerCase()} record.`
         }
         onClose={() => !saving && resetEditor()}
       >
@@ -442,20 +528,19 @@ export default function DashboardPage() {
           <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
             <div>
               <p className="mb-2 text-sm font-semibold uppercase tracking-[0.25em] text-blue-200">
-                PostgREST Admin Dashboard
+                Admin
               </p>
               <h1 className="text-3xl font-bold md:text-4xl">
                 ARAM Database Dashboard
               </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-                Manage travel content with search, filters, analytics, image
-                uploads, and Google Places integration.
-              </p>
+              
             </div>
 
             <div className="rounded-2xl bg-white/10 px-6 py-5 backdrop-blur">
               <p className="text-sm text-slate-300">Active Table</p>
-              <p className="mt-1 text-2xl font-bold">{meta.label}</p>
+              <p className="mt-1 text-2xl font-bold">
+                {meta ? meta.label : "All Tables"}
+              </p>
               <p className="mt-1 text-sm text-slate-300">
                 {total.toLocaleString()} matching records
               </p>
@@ -473,21 +558,35 @@ export default function DashboardPage() {
           />
         )}
 
-        <AnalyticsCharts
-          data={analytics}
-          tableLabel={meta.label}
-          hasLocation={!!meta.locationField}
-          hasCategory={!!meta.categoryField}
-        />
+        {!isAllTab && meta && analytics && (
+          <AnalyticsCharts
+            data={analytics}
+            tableLabel={meta.label}
+            hasLocation={!!meta.locationField}
+            hasCategory={!!meta.categoryField}
+          />
+        )}
 
         <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => handleTabChange("all")}
+              className={`flex-1 rounded-xl px-5 py-3 text-sm font-semibold transition ${
+                activeTab === "all"
+                  ? "bg-blue-700 text-white shadow-md"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
+              All
+            </button>
+
             {(Object.keys(TABLE_META) as TableKey[]).map((tab) => (
               <button
                 key={tab}
                 type="button"
                 onClick={() => handleTabChange(tab)}
-                className={`rounded-xl px-5 py-3 text-sm font-semibold transition ${
+                className={`flex-1 rounded-xl px-5 py-3 text-sm font-semibold transition ${
                   activeTab === tab
                     ? "bg-blue-700 text-white shadow-md"
                     : "bg-slate-100 text-slate-700 hover:bg-slate-200"
@@ -499,25 +598,76 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {!isAllTab && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <PlaceSearch
+              table={activeTab}
+              onImported={handleRefresh}
+              onError={(message) => showToast("error", message)}
+              onSuccess={(message) => showToast("success", message)}
+            />
+          </div>
+        )}
+
         <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 p-6">
-            <TableToolbar
-              table={activeTab}
-              search={search}
-              statusFilter={statusFilter}
-              categoryFilter={categoryFilter}
-              locationFilter={locationFilter}
-              pageSize={pageSize}
-              locations={filterOptions.locations}
-              categories={filterOptions.categories}
-              onSearchChange={setSearch}
-              onStatusChange={setStatusFilter}
-              onCategoryChange={setCategoryFilter}
-              onLocationChange={setLocationFilter}
-              onPageSizeChange={setPageSize}
-              onRefresh={handleRefresh}
-              onCreate={handleCreate}
-            />
+            {isAllTab ? (
+              <div className="space-y-4">
+                <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+                  <div>
+                    <h2 className="text-2xl font-bold">All Records</h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Every record across all tables, newest first.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleRefresh}
+                    className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+                  >
+                    Refresh
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search records..."
+                    className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-600"
+                  />
+
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-600"
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="published">Published</option>
+                    <option value="draft">Draft</option>
+                  </select>
+                </div>
+              </div>
+            ) : (
+              <TableToolbar
+                table={activeTab}
+                search={search}
+                statusFilter={statusFilter}
+                categoryFilter={categoryFilter}
+                locationFilter={locationFilter}
+                pageSize={pageSize}
+                locations={filterOptions.locations}
+                categories={filterOptions.categories}
+                onSearchChange={setSearch}
+                onStatusChange={setStatusFilter}
+                onCategoryChange={setCategoryFilter}
+                onLocationChange={setLocationFilter}
+                onPageSizeChange={setPageSize}
+                onRefresh={handleRefresh}
+                onCreate={handleCreate}
+              />
+            )}
           </div>
 
           <div className="p-6">
@@ -536,6 +686,7 @@ export default function DashboardPage() {
                     : "Get started by creating your first record."
                 }
                 actionLabel={
+                  isAllTab ||
                   debouncedSearch ||
                   statusFilter ||
                   categoryFilter ||
@@ -544,6 +695,7 @@ export default function DashboardPage() {
                     : "+ Add New Record"
                 }
                 onAction={
+                  isAllTab ||
                   debouncedSearch ||
                   statusFilter ||
                   categoryFilter ||

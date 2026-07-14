@@ -289,3 +289,30 @@ export async function fetchGooglePlaceDetails(
 
   return response.json();
 }
+
+export type GooglePlaceSearchResult = {
+  place_id: string;
+  name: string;
+  address: string;
+  rating: number | null;
+  user_ratings_total: number | null;
+  photo_url: string | null;
+};
+
+export async function searchGooglePlaces(
+  query: string
+): Promise<GooglePlaceSearchResult[]> {
+  if (!query.trim()) return [];
+
+  const response = await fetch(
+    `/api/google-places/search?query=${encodeURIComponent(query)}`
+  );
+
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || "Failed to search places");
+  }
+
+  const data = await response.json();
+  return data.results ?? [];
+}

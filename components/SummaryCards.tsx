@@ -1,9 +1,9 @@
 import { TABLE_META } from "@/lib/table-config";
-import type { TableKey, TableStats } from "@/lib/types";
+import type { DashboardTab, TableKey, TableStats } from "@/lib/types";
 
 type SummaryCardsProps = {
   stats: TableStats;
-  activeTab: TableKey;
+  activeTab: DashboardTab;
   onSelect: (table: TableKey) => void;
 };
 
