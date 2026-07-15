@@ -1,3 +1,4 @@
+import { Plus, RefreshCw } from "lucide-react";
 import {
   PAGE_SIZE_OPTIONS,
   TABLE_META,
@@ -53,17 +54,19 @@ export default function TableToolbar({
           <button
             type="button"
             onClick={onRefresh}
-            className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
           >
+            <RefreshCw className="h-4 w-4" strokeWidth={2} />
             Refresh
           </button>
 
           <button
             type="button"
             onClick={onCreate}
-            className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
           >
-            + Add New
+            <Plus className="h-4 w-4" strokeWidth={2.5} />
+            Add New
           </button>
         </div>
       </div>
@@ -73,13 +76,13 @@ export default function TableToolbar({
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Filter records..."
-          className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-600 lg:col-span-2"
+          className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 lg:col-span-2"
         />
 
         <select
           value={statusFilter}
           onChange={(e) => onStatusChange(e.target.value)}
-          className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-600"
+          className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
         >
           <option value="">All Statuses</option>
           <option value="published">Published</option>
@@ -90,7 +93,7 @@ export default function TableToolbar({
           <select
             value={categoryFilter}
             onChange={(e) => onCategoryChange(e.target.value)}
-            className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-600"
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
           >
             <option value="">All Categories</option>
             {categories.map((cat) => (
@@ -105,7 +108,7 @@ export default function TableToolbar({
           <select
             value={locationFilter}
             onChange={(e) => onLocationChange(e.target.value)}
-            className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-600"
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
           >
             <option value="">All Locations</option>
             {locations.map((loc) => (
@@ -122,7 +125,7 @@ export default function TableToolbar({
         <select
           value={pageSize}
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-blue-600"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
         >
           {PAGE_SIZE_OPTIONS.map((size) => (
             <option key={size} value={size}>

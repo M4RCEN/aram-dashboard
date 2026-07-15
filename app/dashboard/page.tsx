@@ -1,5 +1,15 @@
 "use client";
 
+import {
+  Calendar,
+  Compass,
+  Hotel,
+  LayoutGrid,
+  MapPin,
+  RefreshCw,
+  Search,
+  UtensilsCrossed,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AnalyticsCharts from "@/components/AnalyticsCharts";
 import DataTable from "@/components/DataTable";
@@ -54,6 +64,14 @@ const ALL_VIEW_COLUMNS = [
   "created_at",
 ];
 const ALL_VIEW_FETCH_SIZE = 500;
+
+const TAB_ICONS: Record<TableKey, typeof Calendar> = {
+  events: Calendar,
+  places: MapPin,
+  restaurants: UtensilsCrossed,
+  stays: Hotel,
+  tours: Compass,
+};
 
 type ToastState = {
   type: "success" | "error";
@@ -465,7 +483,7 @@ export default function DashboardPage() {
     activeTab === "restaurants" || activeTab === "places";
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6 text-slate-900">
+    <main className="min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100 p-4 text-slate-900 sm:p-6 lg:p-8">
       {toast && (
         <Toast
           type={toast.type}
@@ -524,19 +542,33 @@ export default function DashboardPage() {
       </FormModal>
 
       <section className="mx-auto max-w-7xl space-y-6">
-        <div className="rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 p-8 text-white shadow-xl">
-          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-blue-950 p-8 text-white shadow-xl">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-20"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 15% 20%, rgba(59,130,246,0.5), transparent 40%), radial-gradient(circle at 85% 80%, rgba(124,58,237,0.4), transparent 45%)",
+            }}
+          />
+
+          <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
             <div>
-              <p className="mb-2 text-sm font-semibold uppercase tracking-[0.25em] text-blue-200">
+              <p className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.25em] text-blue-200">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+                </span>
                 Admin
               </p>
-              <h1 className="text-3xl font-bold md:text-4xl">
-                ARAM's Data Dashboard
+              <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
+                ARAM&rsquo;s Data Dashboard
               </h1>
-              
+              <p className="mt-2 max-w-md text-sm text-slate-300">
+                Manage events, places, restaurants, stays, and tours in one place.
+              </p>
             </div>
 
-            <div className="rounded-2xl bg-white/10 px-6 py-5 backdrop-blur">
+            <div className="rounded-2xl border border-white/10 bg-white/10 px-6 py-5 backdrop-blur">
               <p className="text-sm text-slate-300">Active Table</p>
               <p className="mt-1 text-2xl font-bold">
                 {meta ? meta.label : "All Tables"}
@@ -567,34 +599,39 @@ export default function DashboardPage() {
           />
         )}
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="flex gap-2">
+        <div className="sticky top-4 z-20 rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-sm backdrop-blur">
+          <div className="flex gap-1.5 overflow-x-auto">
             <button
               type="button"
               onClick={() => handleTabChange("all")}
-              className={`flex-1 rounded-xl px-5 py-3 text-sm font-semibold transition ${
+              className={`inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
                 activeTab === "all"
                   ? "bg-blue-700 text-white shadow-md"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  : "text-slate-600 hover:bg-slate-100"
               }`}
             >
+              <LayoutGrid className="h-4 w-4" strokeWidth={2} />
               All
             </button>
 
-            {(Object.keys(TABLE_META) as TableKey[]).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => handleTabChange(tab)}
-                className={`flex-1 rounded-xl px-5 py-3 text-sm font-semibold transition ${
-                  activeTab === tab
-                    ? "bg-blue-700 text-white shadow-md"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
-              >
-                {TABLE_META[tab].label}
-              </button>
-            ))}
+            {(Object.keys(TABLE_META) as TableKey[]).map((tab) => {
+              const Icon = TAB_ICONS[tab];
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => handleTabChange(tab)}
+                  className={`inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                    activeTab === tab
+                      ? "bg-blue-700 text-white shadow-md"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" strokeWidth={2} />
+                  {TABLE_META[tab].label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -624,24 +661,28 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     onClick={handleRefresh}
-                    className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
                   >
+                    <RefreshCw className="h-4 w-4" strokeWidth={2} />
                     Refresh
                   </button>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search records..."
-                    className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-600"
-                  />
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" strokeWidth={2} />
+                    <input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search records..."
+                      className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </div>
 
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-600"
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
                   >
                     <option value="">All Statuses</option>
                     <option value="published">Published</option>
