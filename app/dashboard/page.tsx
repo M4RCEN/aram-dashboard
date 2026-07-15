@@ -5,11 +5,13 @@ import {
   Compass,
   Hotel,
   LayoutGrid,
+  LogOut,
   MapPin,
   RefreshCw,
   Search,
   UtensilsCrossed,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AnalyticsCharts from "@/components/AnalyticsCharts";
 import DataTable from "@/components/DataTable";
@@ -87,6 +89,8 @@ const EMPTY_STATS: TableStats = {
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
   const [activeTab, setActiveTab] = useState<DashboardTab>("events");
   const [records, setRecords] = useState<RecordItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -195,18 +199,33 @@ export default function DashboardPage() {
       })
     );
 
-    const merged = perTable.flat();
+    let merged: RecordItem[];
 
-    merged.sort((a, b) => {
-      const av = a[sortBy];
-      const bv = b[sortBy];
-      if (av == null && bv == null) return 0;
-      if (av == null) return sortDir === "asc" ? -1 : 1;
-      if (bv == null) return sortDir === "asc" ? 1 : -1;
-      if (av < bv) return sortDir === "asc" ? -1 : 1;
-      if (av > bv) return sortDir === "asc" ? 1 : -1;
-      return 0;
-    });
+    if (sortBy === "created_at") {
+      // Interleave round-robin across tables (each table's own list is
+      // already newest-first) so one table's bulk insert can't crowd
+      // every other table off the first page.
+      merged = [];
+      const maxLength = Math.max(...perTable.map((records) => records.length));
+      for (let i = 0; i < maxLength; i++) {
+        for (const tableRecords of perTable) {
+          if (tableRecords[i]) merged.push(tableRecords[i]);
+        }
+      }
+      if (sortDir === "asc") merged.reverse();
+    } else {
+      merged = perTable.flat();
+      merged.sort((a, b) => {
+        const av = a[sortBy];
+        const bv = b[sortBy];
+        if (av == null && bv == null) return 0;
+        if (av == null) return sortDir === "asc" ? -1 : 1;
+        if (bv == null) return sortDir === "asc" ? 1 : -1;
+        if (av < bv) return sortDir === "asc" ? -1 : 1;
+        if (av > bv) return sortDir === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
 
     const totalCount = merged.length;
     const start = (page - 1) * pageSize;
@@ -479,6 +498,17 @@ export default function DashboardPage() {
     ]);
   }
 
+  async function handleLogout() {
+    try {
+      setLoggingOut(true);
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/login");
+      router.refresh();
+    } finally {
+      setLoggingOut(false);
+    }
+  }
+
   const supportsGooglePlaces =
     activeTab === "restaurants" || activeTab === "places";
 
@@ -551,7 +581,7 @@ export default function DashboardPage() {
             }}
           />
 
-          <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
+          <div className="relative flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
             <div>
               <p className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.25em] text-blue-200">
                 <span className="relative flex h-2 w-2">
@@ -568,15 +598,15 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/10 px-6 py-5 backdrop-blur">
-              <p className="text-sm text-slate-300">Active Table</p>
-              <p className="mt-1 text-2xl font-bold">
-                {meta ? meta.label : "All Tables"}
-              </p>
-              <p className="mt-1 text-sm text-slate-300">
-                {total.toLocaleString()} matching records
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <LogOut className="h-4 w-4" strokeWidth={2} />
+              {loggingOut ? "Signing out..." : "Sign Out"}
+            </button>
           </div>
         </div>
 

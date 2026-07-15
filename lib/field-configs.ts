@@ -149,6 +149,7 @@ const STAY_FIELDS: FieldConfig[] = [
   { key: "latitude", label: "Latitude", type: "number", section: "Location" },
   { key: "longitude", label: "Longitude", type: "number", section: "Location" },
   { key: "image_url", label: "Image", type: "image", section: "Media" },
+  { key: "google_place_id", label: "Google Place ID", type: "text", section: "Status" },
   {
     key: "status",
     label: "Status",
@@ -187,6 +188,7 @@ const TOUR_FIELDS: FieldConfig[] = [
   { key: "latitude", label: "Latitude", type: "number", section: "Location" },
   { key: "longitude", label: "Longitude", type: "number", section: "Location" },
   { key: "image_url", label: "Image", type: "image", section: "Media" },
+  { key: "google_place_id", label: "Google Place ID", type: "text", section: "Status" },
   {
     key: "status",
     label: "Status",
@@ -213,6 +215,7 @@ const EVENT_FIELDS: FieldConfig[] = [
   { key: "latitude", label: "Latitude", type: "number", section: "Location" },
   { key: "longitude", label: "Longitude", type: "number", section: "Location" },
   { key: "image_url", label: "Image", type: "image", section: "Media" },
+  { key: "google_place_id", label: "Google Place ID", type: "text", section: "Status" },
   {
     key: "status",
     label: "Status",

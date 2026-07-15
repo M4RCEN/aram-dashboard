@@ -1,7 +1,7 @@
 import type { TableKey } from "./types";
 import type { GooglePlaceDetails } from "./postgrest";
 
-const SARAWAK_DISTRICTS = [
+export const SARAWAK_DISTRICTS = [
   "Kuching",
   "Miri",
   "Sibu",
@@ -93,7 +93,8 @@ export function mapCategory(
 export function buildGoogleImportPayload(
   table: TableKey,
   details: GooglePlaceDetails,
-  placeId: string
+  placeId: string,
+  status: "draft" | "published" = "draft"
 ): Record<string, unknown> {
   const district = extractDistrict(
     details.address,
@@ -107,17 +108,21 @@ export function buildGoogleImportPayload(
     address: details.address,
     latitude: details.latitude,
     longitude: details.longitude,
-    rating: details.rating,
     image_url: details.image_url,
-    status: "draft",
+    status,
+    google_place_id: placeId,
   };
+
+  // "events" has no rating column -- every other table does.
+  if (table !== "events") {
+    payload.rating = details.rating;
+  }
 
   if (table === "restaurants") {
     if (category) payload.category = category;
     if (district) payload.district = district;
     payload.halal_status = "unknown";
     payload.menu_images = details.menu_images ?? [];
-    payload.google_place_id = placeId;
   }
 
   if (table === "places") {
@@ -125,13 +130,18 @@ export function buildGoogleImportPayload(
     if (district) payload.region = district.toLowerCase();
     payload.source = "google";
     payload.content_type = "landmark";
-    payload.google_place_id = placeId;
     if (details.website) payload.website = details.website;
   }
 
-  if (table === "stays" || table === "tours") {
+  if (table === "stays") {
     if (district) payload.district = district;
     if (details.website) payload.website = details.website;
+  }
+
+  if (table === "tours") {
+    if (district) payload.district = district;
+    // "tours" has no website column -- booking_url is the closest fit.
+    if (details.website) payload.booking_url = details.website;
   }
 
   if (table === "events") {

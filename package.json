@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "pull:places": "tsx scripts/pull-google-places.ts"
   },
   "dependencies": {
     "@tailwindcss/postcss": "latest",
@@ -20,6 +21,8 @@
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "dotenv": "^17.4.2",
+    "tsx": "^4.23.1",
     "typescript": "latest"
   }
 }

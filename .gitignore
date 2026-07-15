@@ -3,3 +3,5 @@ node_modules/
 .env.local
 .env*.local
 public/uploads/
+scripts/.pull-state.json
+logs/
