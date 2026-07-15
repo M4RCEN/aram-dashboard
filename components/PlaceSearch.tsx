@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { buildGoogleImportPayload } from "@/lib/google-import";
 import {
   createRecord,
   fetchGooglePlaceDetails,
   searchGooglePlaces,
-  type GooglePlaceDetails,
   type GooglePlaceSearchResult,
 } from "@/lib/postgrest";
-import { TABLE_FIELDS } from "@/lib/field-configs";
 import { TABLE_META } from "@/lib/table-config";
 import type { TableKey } from "@/lib/types";
 
@@ -19,58 +18,11 @@ type PlaceSearchProps = {
   onSuccess: (message: string) => void;
 };
 
-function hasField(table: TableKey, key: string): boolean {
-  return TABLE_FIELDS[table].some((field) => field.key === key);
-}
-
 function singularLabel(table: TableKey): string {
   const label = TABLE_META[table].label.toLowerCase();
   const singular = label.endsWith("s") ? label.slice(0, -1) : label;
   const article = /^[aeiou]/.test(singular) ? "an" : "a";
   return `${article} ${singular}`;
-}
-
-function cleanPayload(
-  payload: Record<string, unknown>
-): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(payload).filter(
-      ([, value]) => value !== null && value !== undefined && value !== ""
-    )
-  );
-}
-
-function buildImportPayload(
-  table: TableKey,
-  place: GooglePlaceSearchResult,
-  details: GooglePlaceDetails
-): Record<string, unknown> {
-  const nameField = hasField(table, "title") ? "title" : "name";
-
-  const payload: Record<string, unknown> = {
-    [nameField]: details.name || place.name,
-    address: details.address || place.address,
-    latitude: details.latitude,
-    longitude: details.longitude,
-    rating: details.rating ?? place.rating,
-    image_url: details.image_url,
-    status: "draft",
-  };
-
-  if (hasField(table, "google_place_id")) {
-    payload.google_place_id = place.place_id;
-  }
-  if (hasField(table, "website")) {
-    payload.website = details.website;
-  }
-  if (hasField(table, "menu_images")) {
-    payload.menu_images = details.menu_images;
-  }
-  if (hasField(table, "source")) {
-    payload.source = "google";
-  }
-
-  return cleanPayload(payload);
 }
 
 export default function PlaceSearch({
@@ -126,7 +78,7 @@ export default function PlaceSearch({
     try {
       setImportingId(place.place_id);
       const details = await fetchGooglePlaceDetails(place.place_id);
-      const payload = buildImportPayload(table, place, details);
+      const payload = buildGoogleImportPayload(table, details, place.place_id);
       await createRecord(table, payload);
 
       onSuccess(`"${place.name}" imported successfully.`);
@@ -135,7 +87,12 @@ export default function PlaceSearch({
       setOpen(false);
       onImported();
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Failed to import place.");
+      const message = err instanceof Error ? err.message : "Failed to import place.";
+      if (message.includes("duplicate key") || message.includes("unique")) {
+        onError(`"${place.name}" is already in the database.`);
+      } else {
+        onError(message);
+      }
     } finally {
       setImportingId(null);
     }

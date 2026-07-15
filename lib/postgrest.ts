@@ -7,9 +7,9 @@ import type {
 } from "./types";
 import { ALL_TABLES, TABLE_META } from "./table-config";
 
-const API_URL = process.env.NEXT_PUBLIC_POSTGREST_URL;
+const API_URL = process.env.NEXT_PUBLIC_POSTGREST_URL || "/api/db";
 
-export function getApiUrl(): string | undefined {
+export function getApiUrl(): string {
   return API_URL;
 }
 
@@ -67,7 +67,7 @@ export async function fetchRecordsPaginated(
   params: QueryParams = {}
 ): Promise<PaginatedResult> {
   if (!API_URL) {
-    throw new Error("Missing NEXT_PUBLIC_POSTGREST_URL in .env.local");
+    throw new Error("Missing PostgREST API URL");
   }
 
   const page = params.page ?? 1;
@@ -180,7 +180,7 @@ export async function createRecord(
   payload: Record<string, unknown>
 ): Promise<RecordItem> {
   if (!API_URL) {
-    throw new Error("Missing NEXT_PUBLIC_POSTGREST_URL in .env.local");
+    throw new Error("Missing PostgREST API URL");
   }
 
   const response = await fetch(`${API_URL}/${table}`, {
@@ -207,7 +207,7 @@ export async function updateRecord(
   payload: Record<string, unknown>
 ): Promise<RecordItem> {
   if (!API_URL) {
-    throw new Error("Missing NEXT_PUBLIC_POSTGREST_URL in .env.local");
+    throw new Error("Missing PostgREST API URL");
   }
 
   const response = await fetch(`${API_URL}/${table}?id=eq.${id}`, {
@@ -233,7 +233,7 @@ export async function deleteRecord(
   id: string | number
 ): Promise<void> {
   if (!API_URL) {
-    throw new Error("Missing NEXT_PUBLIC_POSTGREST_URL in .env.local");
+    throw new Error("Missing PostgREST API URL");
   }
 
   const response = await fetch(`${API_URL}/${table}?id=eq.${id}`, {
@@ -273,6 +273,12 @@ export type GooglePlaceDetails = {
   menu_images: string[];
   website: string | null;
   google_maps_url: string | null;
+  types: string[];
+  address_components: {
+    long_name: string;
+    short_name: string;
+    types: string[];
+  }[];
 };
 
 export async function fetchGooglePlaceDetails(

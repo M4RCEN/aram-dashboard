@@ -200,7 +200,7 @@ export default function DashboardPage() {
 
   const loadRecords = useCallback(async () => {
     if (!getApiUrl()) {
-      setError("Missing NEXT_PUBLIC_POSTGREST_URL in .env.local");
+      setError("Failed to reach the database API. Check that PostgREST is running.");
       return;
     }
 
@@ -531,7 +531,7 @@ export default function DashboardPage() {
                 Admin
               </p>
               <h1 className="text-3xl font-bold md:text-4xl">
-                ARAM Database Dashboard
+                ARAM's Data Dashboard
               </h1>
               
             </div>

@@ -72,7 +72,7 @@ export default function TableToolbar({
         <input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search records..."
+          placeholder="Filter records..."
           className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-600 lg:col-span-2"
         />
 

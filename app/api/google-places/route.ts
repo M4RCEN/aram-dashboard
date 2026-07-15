@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     detailsUrl.searchParams.set("place_id", placeId);
     detailsUrl.searchParams.set(
       "fields",
-      "name,formatted_address,geometry,rating,photos,types,website,url"
+      "name,formatted_address,address_components,geometry,rating,photos,types,website,url"
     );
     detailsUrl.searchParams.set("key", apiKey);
 
@@ -73,6 +73,8 @@ export async function GET(request: NextRequest) {
       menu_images: photoUrls,
       website: result.website ?? null,
       google_maps_url: result.url ?? null,
+      types: result.types ?? [],
+      address_components: result.address_components ?? [],
     });
   } catch (error) {
     console.error("Google Places error:", error);
