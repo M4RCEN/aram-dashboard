@@ -436,7 +436,10 @@ export default function DashboardPage() {
       ]);
     } catch (err) {
       console.error(err);
-      showToast("error", "Failed to delete record.");
+      showToast(
+        "error",
+        err instanceof Error ? err.message : "Failed to delete record."
+      );
     } finally {
       setDeleting(false);
     }

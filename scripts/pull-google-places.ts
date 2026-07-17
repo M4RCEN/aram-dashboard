@@ -111,9 +111,6 @@ async function textSearch(
   for (let page = 0; page < MAX_PAGES_PER_QUERY; page++) {
     const url = new URL(`${PLACES_API}/textsearch/json`);
     url.searchParams.set("key", apiKey);
-    if (coords) {
-      url.searchParams.set("locationbias", `circle:${DISTRICT_BIAS_RADIUS_M}@${coords.lat},${coords.lng}`);
-    }
 
     if (pageToken) {
       url.searchParams.set("pagetoken", pageToken);
