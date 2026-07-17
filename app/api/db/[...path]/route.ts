@@ -48,6 +48,19 @@ async function proxyRequest(
     if (contentRange) responseHeaders.set("content-range", contentRange);
 
     const body = await response.text();
+
+    // Responses with these statuses must have a null body per the Fetch
+    // spec -- PostgREST returns 204 on every successful DELETE (and can
+    // for other requests too), and passing even an empty string here
+    // throws "Invalid response status code" and crashes the handler.
+    const NULL_BODY_STATUSES = [204, 205, 304];
+    if (NULL_BODY_STATUSES.includes(response.status)) {
+      return new NextResponse(null, {
+        status: response.status,
+        headers: responseHeaders,
+      });
+    }
+
     return new NextResponse(body, {
       status: response.status,
       headers: responseHeaders,
