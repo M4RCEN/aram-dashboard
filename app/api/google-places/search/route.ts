@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 const PLACES_API = "https://maps.googleapis.com/maps/api/place";
 
+// Rough bounding circle around Sarawak state, used to bias results
+// toward the region. Combined with the "Sarawak, Malaysia" suffix and
+// the address filter below, this keeps results limited to Sarawak.
+const SARAWAK_LOCATION_BIAS = "circle:400000@2.5,113.0";
+const REGION_KEYWORD = "sarawak";
+
 type GooglePlacePhoto = { photo_reference: string };
 
 type GooglePlaceResult = {
@@ -29,8 +35,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const scopedQuery = query.toLowerCase().includes(REGION_KEYWORD)
+      ? query
+      : `${query}, Sarawak, Malaysia`;
+
     const searchUrl = new URL(`${PLACES_API}/textsearch/json`);
-    searchUrl.searchParams.set("query", query);
+    searchUrl.searchParams.set("query", scopedQuery);
+    searchUrl.searchParams.set("locationbias", SARAWAK_LOCATION_BIAS);
     searchUrl.searchParams.set("key", apiKey);
 
     const searchRes = await fetch(searchUrl.toString());
@@ -44,6 +55,9 @@ export async function GET(request: NextRequest) {
     }
 
     const results = ((data.results ?? []) as GooglePlaceResult[])
+      .filter((place) =>
+        (place.formatted_address ?? "").toLowerCase().includes(REGION_KEYWORD)
+      )
       .slice(0, 8)
       .map((place) => {
         let photoUrl: string | null = null;

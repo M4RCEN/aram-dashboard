@@ -175,6 +175,40 @@ export async function fetchFilterOptions(
   };
 }
 
+export class ApiError extends Error {
+  code?: string;
+  hint?: string | null;
+
+  constructor(message: string, code?: string, hint?: string | null) {
+    super(message);
+    this.name = "ApiError";
+    this.code = code;
+    this.hint = hint;
+  }
+}
+
+function parseApiError(text: string, fallback: string): ApiError {
+  try {
+    const data = JSON.parse(text);
+    if (data?.message) {
+      if (data.code === "42501") {
+        return new ApiError(
+          "Permission denied by the database. Ask your administrator to check role grants.",
+          data.code,
+          data.hint
+        );
+      }
+      if (data.code === "23505" || /duplicate key|unique/i.test(data.message)) {
+        return new ApiError("This record already exists in the database.", data.code, data.hint);
+      }
+      return new ApiError(data.message, data.code, data.hint);
+    }
+  } catch {
+    // Not a PostgREST-style JSON error body -- fall through.
+  }
+  return new ApiError(text || fallback);
+}
+
 export async function createRecord(
   table: TableKey,
   payload: Record<string, unknown>
@@ -194,7 +228,7 @@ export async function createRecord(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(errorText || "Create failed");
+    throw parseApiError(errorText, "Create failed");
   }
 
   const data = await response.json();
@@ -221,7 +255,7 @@ export async function updateRecord(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(errorText || "Update failed");
+    throw parseApiError(errorText, "Update failed");
   }
 
   const data = await response.json();
@@ -241,7 +275,8 @@ export async function deleteRecord(
   });
 
   if (!response.ok) {
-    throw new Error("Delete failed");
+    const errorText = await response.text();
+    throw parseApiError(errorText, "Delete failed");
   }
 }
 

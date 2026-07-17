@@ -87,12 +87,7 @@ export default function PlaceSearch({
       setOpen(false);
       onImported();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to import place.";
-      if (message.includes("duplicate key") || message.includes("unique")) {
-        onError(`"${place.name}" is already in the database.`);
-      } else {
-        onError(message);
-      }
+      onError(err instanceof Error ? err.message : "Failed to import place.");
     } finally {
       setImportingId(null);
     }
